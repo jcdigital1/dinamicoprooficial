@@ -13,23 +13,6 @@ export const AppLayout: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Outlet />
       </main>
-
-      <footer className="border-t border-zinc-900 bg-black/60 py-6 text-xs text-zinc-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-zinc-400">DINÂMICO PRO</span>
-            <span>·</span>
-            <span>Sistema Comercial de Plaquinhas NFC & QR Code</span>
-          </div>
-          <div className="flex items-center gap-4 text-zinc-500">
-            <span>A4 10x10cm Calibrado</span>
-            <span>·</span>
-            <span>Monotonia Transacional</span>
-            <span>·</span>
-            <span>Vercel & Firebase Ready</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

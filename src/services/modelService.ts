@@ -1,96 +1,95 @@
-import { collection, doc, getDocs, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { PlateModel, QRPlacement } from '../types';
 
 /**
- * Exact, mathematically verified coordinates detected via optical analysis (jsQR)
- * on the 8 official 800x800px Canva artworks.
- * Bounding boxes match the fake QR code location down to the pixel.
+ * The 8 official models updated with the clean artwork versions (without old hardcoded serial numbers)
+ * and exact detected coordinates matching the fake QR code location down to the pixel.
  */
 export const INITIAL_OFFICIAL_MODELS: PlateModel[] = [
   {
     id: 'modelo-01',
-    name: 'Wi-Fi Conecte seu Dispositivo',
+    name: 'Wi-Fi Rede & Senha Clean',
     category: 'wifi',
-    imageUrl: 'https://i.postimg.cc/43Lcf4s7/Copia-de-Conecte-seu-dispositivo-a-nossa-3.jpg',
-    qrPlacement: { x: 0.5908, y: 0.5545, size: 0.2288 },
+    imageUrl: 'https://i.postimg.cc/VLSPDm7k/Design-sem-nome-1.jpg',
+    qrPlacement: { x: 0.5810, y: 0.5327, size: 0.2629 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-02',
-    name: 'Instagram Editável',
-    category: 'instagram',
-    imageUrl: 'https://i.postimg.cc/50XC6c2S/Copia-de-Instagram-editavel.jpg',
-    qrPlacement: { x: 0.6685, y: 0.6773, size: 0.2090 },
+    name: 'Wi-Fi & WhatsApp Elegance',
+    category: 'whatsapp',
+    imageUrl: 'https://i.postimg.cc/3wFsdRwW/Design-sem-nome-3.jpg',
+    qrPlacement: { x: 0.5943, y: 0.5444, size: 0.2358 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-03',
-    name: 'Plaquinha Pix & Pagamento',
-    category: 'pix',
-    imageUrl: 'https://i.postimg.cc/6QjZW6tw/Plaquinha-01-4.jpg',
-    qrPlacement: { x: 0.1290, y: 0.6079, size: 0.2630 },
+    name: 'Google Avaliação 5 Estrelas',
+    category: 'google',
+    imageUrl: 'https://i.postimg.cc/HxSF9hXj/Design-sem-nome-5.jpg',
+    qrPlacement: { x: 0.6739, y: 0.6903, size: 0.1992 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-04',
-    name: 'Wi-Fi & WhatsApp Duplo 01',
-    category: 'whatsapp',
-    imageUrl: 'https://i.postimg.cc/MTnQvkp3/Wi-Fiwhatsapp-3.jpg',
-    qrPlacement: { x: 0.5896, y: 0.5394, size: 0.2468 },
+    name: 'Wi-Fi Conecte seu Dispositivo',
+    category: 'wifi',
+    imageUrl: 'https://i.postimg.cc/CKStTg4M/Design-sem-nome-7.jpg',
+    qrPlacement: { x: 0.5908, y: 0.5545, size: 0.2288 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-05',
-    name: 'Wi-Fi & WhatsApp Elegance 02',
+    name: 'Wi-Fi & WhatsApp Duplo',
     category: 'whatsapp',
-    imageUrl: 'https://i.postimg.cc/XJrCpMYH/Wi-Fiwhatsapp-5.jpg',
-    qrPlacement: { x: 0.5942, y: 0.5448, size: 0.2358 },
+    imageUrl: 'https://i.postimg.cc/43QDmd34/Design-sem-nome-2.jpg',
+    qrPlacement: { x: 0.5889, y: 0.5395, size: 0.2459 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-06',
-    name: 'Wi-Fi Rede & Senha Clean',
-    category: 'wifi',
-    imageUrl: 'https://i.postimg.cc/Kz1MRX8J/Wi-Fiwhatsapp-2.jpg',
-    qrPlacement: { x: 0.5812, y: 0.5327, size: 0.2628 },
+    name: 'Instagram Editável',
+    category: 'instagram',
+    imageUrl: 'https://i.postimg.cc/MGq42SYj/Design-sem-nome-4.jpg',
+    qrPlacement: { x: 0.6685, y: 0.6773, size: 0.2090 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-07',
-    name: 'Google Avaliação 5 Estrelas',
-    category: 'google',
-    imageUrl: 'https://i.postimg.cc/50XC6c20/Google.jpg',
-    qrPlacement: { x: 0.6737, y: 0.6900, size: 0.2001 },
+    name: 'Conecte seu Dispositivo Blue',
+    category: 'wifi',
+    imageUrl: 'https://i.postimg.cc/k5qZ3my5/Design-sem-nome-6.jpg',
+    qrPlacement: { x: 0.5908, y: 0.5545, size: 0.2288 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: 'modelo-08',
-    name: 'Conecte seu Dispositivo Blue',
-    category: 'wifi',
-    imageUrl: 'https://i.postimg.cc/QM478NhB/Copia-de-Conecte-seu-dispositivo-a-nossa-4.jpg',
-    qrPlacement: { x: 0.5908, y: 0.5545, size: 0.2288 },
+    name: 'Plaquinha Pix & Pagamento',
+    category: 'pix',
+    imageUrl: 'https://i.postimg.cc/0Nn49BtM/Design-sem-nome-8.jpg',
+    qrPlacement: { x: 0.1292, y: 0.6078, size: 0.2631 },
     isCalibrated: true,
     isDefault: true,
     createdAt: new Date().toISOString(),
   },
 ];
 
-const LOCAL_STORAGE_KEY = 'dinamico_pro_models_v2';
+const LOCAL_STORAGE_KEY = 'dinamico_pro_models_v3';
 
 export async function getPlateModels(): Promise<PlateModel[]> {
   try {
@@ -103,18 +102,13 @@ export async function getPlateModels(): Promise<PlateModel[]> {
       });
 
       const mergedMap = new Map<string, PlateModel>();
-      // Official models take precedence with exact detected coordinates
+      // Official models with new clean artworks take absolute priority
       INITIAL_OFFICIAL_MODELS.forEach((m) => mergedMap.set(m.id, m));
       remoteModels.forEach((m) => {
-        // If remote model has invalid legacy 0.32 placeholder, overwrite with exact detected
-        if (INITIAL_OFFICIAL_MODELS.some(init => init.id === m.id)) {
-          const official = INITIAL_OFFICIAL_MODELS.find(init => init.id === m.id)!;
-          if (m.qrPlacement.x === 0.32 || m.qrPlacement.size === 0.36) {
-            mergedMap.set(m.id, official);
-            return;
-          }
+        // If it's not one of the 8 official models, keep it as custom
+        if (!INITIAL_OFFICIAL_MODELS.some((init) => init.id === m.id)) {
+          mergedMap.set(m.id, m);
         }
-        mergedMap.set(m.id, m);
       });
       return Array.from(mergedMap.values());
     }
@@ -122,7 +116,7 @@ export async function getPlateModels(): Promise<PlateModel[]> {
     console.error('Error fetching models:', error);
   }
 
-  // Fallback to local storage or defaults
+  // Fallback to local storage or new official defaults
   const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (cached) {
     try {
@@ -133,6 +127,13 @@ export async function getPlateModels(): Promise<PlateModel[]> {
     } catch {
       // ignore
     }
+  }
+
+  // Save new official models to local cache
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_OFFICIAL_MODELS));
+  } catch {
+    // ignore
   }
 
   return INITIAL_OFFICIAL_MODELS;

@@ -6,6 +6,14 @@
     color: #f4f4f5;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* CRITICAL: iOS Safari zooms in automatically on any input with font-size < 16px */
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
 

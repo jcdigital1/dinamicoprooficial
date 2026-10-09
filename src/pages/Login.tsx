@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Lock, Mail, User, ArrowRight, ShieldAlert, Sparkles, KeyRound } from 'lucide-react';
+import { Lock, Mail, User, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
 import { useAuth } from '../firebase/authContext';
 
 export const Login: React.FC = () => {
-  const { loginWithEmail, registerWithEmail, resetPassword, loginAsDemoAdmin } = useAuth();
+  const { loginWithEmail, registerWithEmail, resetPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,6 +43,23 @@ export const Login: React.FC = () => {
       } else {
         await loginWithEmail(email, password);
       }
+
+      // Prompt browser credential manager to save credentials
+      if (typeof window !== 'undefined' && 'PasswordCredential' in window) {
+        try {
+          const cred = new (window as any).PasswordCredential({
+            id: email,
+            password: password,
+            name: name || email,
+          });
+          if (navigator.credentials?.store) {
+            await navigator.credentials.store(cred);
+          }
+        } catch {
+          // Standard browser form submission handler will prompt automatically
+        }
+      }
+
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -50,11 +67,6 @@ export const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemo = () => {
-    loginAsDemoAdmin();
-    navigate(from, { replace: true });
   };
 
   return (
@@ -95,37 +107,51 @@ export const Login: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          method="post"
+          action="#"
+          autoComplete="on"
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
           {isRegister && !showForgot && (
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Nome / Gráfica</label>
+              <label htmlFor="name" className="block text-xs font-semibold text-zinc-300 mb-1.5">
+                Nome / Gráfica
+              </label>
               <div className="relative">
-                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
                 <input
+                  id="name"
+                  name="name"
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
                   placeholder="Seu nome ou gráfica"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1.5">E-mail</label>
+            <label htmlFor="email" className="block text-xs font-semibold text-zinc-300 mb-1.5">
+              E-mail
+            </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
               <input
+                id="email"
+                name="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                autoComplete="username"
                 placeholder="seu@email.com"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
               />
             </div>
           </div>
@@ -133,7 +159,9 @@ export const Login: React.FC = () => {
           {!showForgot && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-zinc-300">Senha</label>
+                <label htmlFor="password" className="block text-xs font-semibold text-zinc-300">
+                  Senha
+                </label>
                 {!isRegister && (
                   <button
                     type="button"
@@ -148,8 +176,10 @@ export const Login: React.FC = () => {
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
                 <input
+                  id="password"
+                  name="password"
                   type="password"
                   required
                   value={password}
@@ -157,7 +187,7 @@ export const Login: React.FC = () => {
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   placeholder="••••••••"
                   minLength={6}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
                 />
               </div>
             </div>
@@ -166,7 +196,7 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-b from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-[0_4px_16px_rgba(220,38,38,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full mt-3 py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-b from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-[0_4px_16px_rgba(220,38,38,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
@@ -203,48 +233,35 @@ export const Login: React.FC = () => {
             </button>
           </div>
         ) : (
-          <>
-            <div className="mt-6 text-center text-xs text-zinc-400">
-              {isRegister ? (
-                <span>
-                  Já possui uma conta?{' '}
-                  <button
-                    onClick={() => {
-                      setIsRegister(false);
-                      setError(null);
-                    }}
-                    className="text-red-400 font-semibold hover:underline"
-                  >
-                    Entrar
-                  </button>
-                </span>
-              ) : (
-                <span>
-                  Não tem uma conta?{' '}
-                  <button
-                    onClick={() => {
-                      setIsRegister(true);
-                      setError(null);
-                    }}
-                    className="text-red-400 font-semibold hover:underline"
-                  >
-                    Criar conta
-                  </button>
-                </span>
-              )}
-            </div>
-
-            <div className="pt-4 mt-4 border-t border-zinc-900 text-center">
-              <button
-                type="button"
-                onClick={handleDemo}
-                className="w-full py-2 px-3 rounded-xl text-xs font-semibold text-zinc-400 hover:text-red-400 bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 transition-colors flex items-center justify-center gap-2"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-red-500" />
-                Acesso de Teste Rápido
-              </button>
-            </div>
-          </>
+          <div className="mt-6 text-center text-xs text-zinc-400">
+            {isRegister ? (
+              <span>
+                Já possui uma conta?{' '}
+                <button
+                  onClick={() => {
+                    setIsRegister(false);
+                    setError(null);
+                  }}
+                  className="text-red-400 font-semibold hover:underline"
+                >
+                  Entrar
+                </button>
+              </span>
+            ) : (
+              <span>
+                Não tem uma conta?{' '}
+                <button
+                  onClick={() => {
+                    setIsRegister(true);
+                    setError(null);
+                  }}
+                  className="text-red-400 font-semibold hover:underline"
+                >
+                  Criar conta
+                </button>
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>

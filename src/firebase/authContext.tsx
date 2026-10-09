@@ -19,8 +19,6 @@ interface AuthContextType {
   registerWithEmail: (email: string, pass: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  loginAsDemoAdmin: () => void;
-  isDemoUser: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,30 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isDemoUser, setIsDemoUser] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if previously logged in as demo
-    const demoStored = localStorage.getItem('dinamico_pro_demo_auth');
-    if (demoStored) {
-      const parsed = JSON.parse(demoStored);
-      setUser(parsed as any);
-      setProfile({
-        id: parsed.uid,
-        email: parsed.email,
-        displayName: parsed.displayName,
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-      });
-      setIsDemoUser(true);
-      setLoading(false);
-      return;
-    }
+    // Clean up any stale demo key from previous runs
+    localStorage.removeItem('dinamico_pro_demo_auth');
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        setIsDemoUser(false);
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
@@ -127,37 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    if (isDemoUser) {
-      localStorage.removeItem('dinamico_pro_demo_auth');
-      setIsDemoUser(false);
-      setUser(null);
-      setProfile(null);
-      return;
-    }
     await signOut(auth);
   };
 
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
-  };
-
-  const loginAsDemoAdmin = () => {
-    const demoUser = {
-      uid: 'admin-dinamico-pro',
-      email: 'admin@dinamicopro.com',
-      displayName: 'Administrador Dinâmico Pro',
-      emailVerified: true,
-    };
-    localStorage.setItem('dinamico_pro_demo_auth', JSON.stringify(demoUser));
-    setUser(demoUser as any);
-    setProfile({
-      id: demoUser.uid,
-      email: demoUser.email,
-      displayName: demoUser.displayName,
-      role: 'admin',
-      createdAt: new Date().toISOString(),
-    });
-    setIsDemoUser(true);
   };
 
   return (
@@ -170,8 +126,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerWithEmail,
         logout,
         resetPassword,
-        loginAsDemoAdmin,
-        isDemoUser,
       }}
     >
       {children}

@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../../firebase/authContext';
 
 export const Navbar: React.FC = () => {
-  const { user, profile, logout, isDemoUser } = useAuth();
+  const { user, profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -78,7 +78,7 @@ export const Navbar: React.FC = () => {
                   </div>
                   <div className="text-[10px] text-zinc-500 flex items-center justify-end gap-1 font-mono">
                     <ShieldCheck className="w-3 h-3 text-red-500" />
-                    {isDemoUser ? 'MODO DEMO' : 'CONECTADO'}
+                    CONECTADO
                   </div>
                 </div>
                 <button
