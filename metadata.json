@@ -1,0 +1,6 @@
+{
+  "name": "DINÂMICO PRO",
+  "description": "Sistema profissional de geração, calibração e gestão de plaquinhas acrílicas NFC e QR Code dinâmico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

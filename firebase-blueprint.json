@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "owner", "user"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "PlateModel": {
+      "title": "PlateModel",
+      "description": "Plate template model with visual asset and calibrated QR coordinates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "qrPlacement": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "size": { "type": "number" }
+          },
+          "required": ["x", "y", "size"]
+        },
+        "isCalibrated": { "type": "boolean" },
+        "isDefault": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "imageUrl", "qrPlacement", "isCalibrated"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "Production batch containing generated plates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchNumber": { "type": "number" },
+        "batchCode": { "type": "string" },
+        "modelId": { "type": "string" },
+        "modelName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "startPlateNumber": { "type": "string" },
+        "endPlateNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["processing", "completed", "failed"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "batchNumber", "modelId", "quantity", "userId", "createdAt"]
+    },
+    "Plate": {
+      "title": "Plate",
+      "description": "Individual NFC / QR code plate record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "plateNumber": { "type": "string" },
+        "sequenceIndex": { "type": "number" },
+        "batchId": { "type": "string" },
+        "modelId": { "type": "string" },
+        "modelName": { "type": "string" },
+        "publicSlug": { "type": "string" },
+        "publicUrl": { "type": "string" },
+        "customerName": { "type": "string" },
+        "targetUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active", "disabled"] },
+        "qrPlacement": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "size": { "type": "number" }
+          },
+          "required": ["x", "y", "size"]
+        },
+        "clicksCount": { "type": "number" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "plateNumber", "publicSlug", "modelId", "status", "userId", "createdAt"]
+    },
+    "Counter": {
+      "title": "Counter",
+      "description": "Transactional atomic counter for monotonic sequencing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "currentCount": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "currentCount"]
+    },
+    "SystemSetting": {
+      "title": "SystemSetting",
+      "description": "Global or tenant system settings for installation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "publicDomain": { "type": "string" },
+        "installationName": { "type": "string" },
+        "initialized": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profile collection"
+    },
+    "/plateModels/{modelId}": {
+      "schema": { "$ref": "PlateModel" },
+      "description": "Plate design templates and calibrated QR placements"
+    },
+    "/batches/{batchId}": {
+      "schema": { "$ref": "Batch" },
+      "description": "Batch production records"
+    },
+    "/plates/{plateId}": {
+      "schema": { "$ref": "Plate" },
+      "description": "Individual plates, readable by public for redirection and editable by creator"
+    },
+    "/counters/{counterId}": {
+      "schema": { "$ref": "Counter" },
+      "description": "Sequential counter documents"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "SystemSetting" },
+      "description": "Installation system settings"
+    }
+  }
+}

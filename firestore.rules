@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && request.resource.data.id == userId;
+      allow delete: if false;
+    }
+
+    // Plate Models (Templates)
+    match /plateModels/{modelId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.isDefault == true);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Batches
+    match /batches/{batchId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Plates (NFC & QR Code plates)
+    // IMPORTANT: Public visitors MUST be able to read single plate documents to follow dynamic redirects!
+    match /plates/{plateId} {
+      allow get: if true;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid) ||
+        // Public visitor can increment clicksCount only
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicksCount']));
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Counters (atomic monotonic number generation)
+    match /counters/{counterId} {
+      allow get: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // Installation Settings
+    match /settings/{settingId} {
+      allow get: if true;
+      allow list, create, update: if isSignedIn();
+      allow delete: if false;
+    }
+  }
+}
