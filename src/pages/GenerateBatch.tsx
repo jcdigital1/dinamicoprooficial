@@ -210,13 +210,13 @@ export const GenerateBatch: React.FC = () => {
                     <div
                       key={model.id}
                       onClick={() => setSelectedModel(model)}
-                      className={`relative bg-zinc-950 rounded-xl border cursor-pointer overflow-hidden transition-all flex flex-col ${
+                      className={`relative bg-zinc-950 rounded-xl border cursor-pointer overflow-hidden transition-all aspect-square ${
                         isSelected
                           ? 'border-red-600 ring-2 ring-red-600/40 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
                           : 'border-zinc-800 hover:border-zinc-700'
                       }`}
                     >
-                      <div className="aspect-square w-full bg-zinc-900 relative overflow-hidden">
+                      <div className="w-full h-full bg-zinc-900 relative overflow-hidden">
                         <img
                           src={model.imageUrl}
                           alt={model.name}
@@ -228,9 +228,6 @@ export const GenerateBatch: React.FC = () => {
                             <Check className="w-3 h-3 stroke-[3]" />
                           </div>
                         )}
-                      </div>
-                      <div className="p-2">
-                        <h4 className="text-[11px] font-bold text-white truncate">{model.name}</h4>
                       </div>
                     </div>
                   );
