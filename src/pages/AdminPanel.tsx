@@ -402,6 +402,19 @@ export const AdminPanel: React.FC = () => {
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-red-500" />
             Carregando lista de compradores em tempo real...
           </div>
+        ) : fetchError && users.length === 0 ? (
+          <div className="py-12 px-4 text-center text-xs space-y-3">
+            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto" />
+            <p className="font-bold text-red-300 text-sm">Falha na consulta ao banco de dados Firestore</p>
+            <p className="text-zinc-400 max-w-lg mx-auto leading-relaxed">{fetchError}</p>
+            <button
+              onClick={handleRefresh}
+              className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-900/80 hover:bg-red-800 text-white font-semibold text-xs transition-colors border border-red-700/60"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Tentar Novamente
+            </button>
+          </div>
         ) : filteredUsers.length === 0 ? (
           <div className="py-16 text-center text-zinc-500 text-xs">
             {users.length === 0 ? (
