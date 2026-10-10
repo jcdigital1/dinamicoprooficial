@@ -118,8 +118,7 @@ export const ModelsCatalog: React.FC = () => {
               {/* Model details */}
               <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white line-clamp-1">{model.name}</h3>
-                  <div className="text-[11px] text-zinc-400 mt-1 font-mono">
+                  <div className="text-[11px] text-zinc-400 font-mono">
                     Posição QR: X {Math.round(model.qrPlacement.x * 100)}% · Y {Math.round(model.qrPlacement.y * 100)}% · Tam {Math.round(model.qrPlacement.size * 100)}%
                   </div>
                 </div>

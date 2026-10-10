@@ -8,11 +8,24 @@
         "id": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
+        "phone": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "owner", "user"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "blocked"] },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["id", "email", "role"]
+      "required": ["id", "email", "role", "status"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized system administrator record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email"]
     },
     "PlateModel": {
       "title": "PlateModel",
@@ -117,6 +130,10 @@
     }
   },
   "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "Admin" },
+      "description": "System administrator permissions registry"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "User" },
       "description": "User profile collection"

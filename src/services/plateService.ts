@@ -200,6 +200,7 @@ export async function createBatchWithPlates({
       sequenceIndex: seq,
       batchId,
       modelId: model.id,
+      modelVersion: 'v2',
       modelName: model.name,
       publicSlug: slug,
       publicUrl,

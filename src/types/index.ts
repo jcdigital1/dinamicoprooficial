@@ -1,12 +1,27 @@
 export type UserRole = 'admin' | 'owner' | 'user';
+export type UserStatus = 'pending' | 'approved' | 'blocked';
 
 export interface UserProfile {
   id: string;
   email: string;
   displayName?: string;
+  phone?: string;
   role: UserRole;
+  status: UserStatus;
   createdAt: string;
   updatedAt?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+export interface AdminSystemStats {
+  totalUsers: number;
+  pendingUsers: number;
+  approvedUsers: number;
+  blockedUsers: number;
+  totalBatches: number;
+  totalPlates: number;
+  totalClicks: number;
 }
 
 export interface QRPlacement {
@@ -38,6 +53,7 @@ export interface Plate {
   sequenceIndex: number;      // e.g. 1
   batchId: string;
   modelId: string;
+  modelVersion?: string;      // e.g. "v2" - original artwork version reference
   modelName: string;
   publicSlug: string;         // e.g. "dnp_8f4a2b"
   publicUrl: string;          // e.g. "https://domain.com/q/dnp_8f4a2b"

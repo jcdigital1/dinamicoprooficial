@@ -9,8 +9,31 @@ export interface ComposeResult {
   height: number;
 }
 
-// In-memory cache for composed images so UI and export share the exact same rendered buffer
+// In-memory LRU cache with small max size (5 items) to prevent high RAM usage
+const MAX_CACHE_ENTRIES = 5;
 const composedCache = new Map<string, ComposeResult>();
+
+export function clearComposedCache(): void {
+  for (const entry of composedCache.values()) {
+    try {
+      entry.canvas.width = 0;
+      entry.canvas.height = 0;
+    } catch {
+      // ignore
+    }
+  }
+  composedCache.clear();
+}
+
+export function releaseComposeResult(result?: ComposeResult | null): void {
+  if (!result) return;
+  try {
+    result.canvas.width = 0;
+    result.canvas.height = 0;
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Composes the final plate image by replacing the fake QR code with the real dynamic QR code.
@@ -24,10 +47,11 @@ export async function composePlateImage(
   options?: {
     forceFresh?: boolean;
     targetWidth?: number;
+    noCache?: boolean;
   }
 ): Promise<ComposeResult> {
-  const cacheKey = `${artworkUrl}_${publicUrl}_${qrPlacement.x}_${qrPlacement.y}_${qrPlacement.size}`;
-  if (!options?.forceFresh && composedCache.has(cacheKey)) {
+  const cacheKey = `${artworkUrl}_${publicUrl}_${qrPlacement.x}_${qrPlacement.y}_${qrPlacement.size}_${options?.targetWidth || 'nat'}`;
+  if (!options?.forceFresh && !options?.noCache && composedCache.has(cacheKey)) {
     return composedCache.get(cacheKey)!;
   }
 
@@ -86,6 +110,19 @@ export async function composePlateImage(
     height,
   };
 
-  composedCache.set(cacheKey, result);
+  if (!options?.noCache) {
+    if (composedCache.size >= MAX_CACHE_ENTRIES) {
+      const oldestKey = composedCache.keys().next().value;
+      if (oldestKey) {
+        const oldEntry = composedCache.get(oldestKey);
+        if (oldEntry) {
+          oldEntry.canvas.width = 0;
+          oldEntry.canvas.height = 0;
+        }
+        composedCache.delete(oldestKey);
+      }
+    }
+    composedCache.set(cacheKey, result);
+  }
   return result;
 }

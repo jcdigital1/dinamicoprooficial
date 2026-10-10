@@ -2,8 +2,16 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../firebase/authContext';
 
-export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requireAdmin?: boolean;
+}
+
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requireAdmin = false,
+}) => {
+  const { user, profile, loading, isAdmin, isApproved, isPending, isBlocked } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -15,8 +23,24 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
+  // Not logged in -> send to login
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Route specifically requires Administrator privileges
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If user is blocked by administrator -> send to blocked access page
+  if (isBlocked && location.pathname !== '/acesso-bloqueado') {
+    return <Navigate to="/acesso-bloqueado" replace />;
+  }
+
+  // If user is pending approval and is NOT admin -> send to pending approval page
+  if (isPending && location.pathname !== '/aguardando-aprovacao') {
+    return <Navigate to="/aguardando-aprovacao" replace />;
   }
 
   return <>{children}</>;

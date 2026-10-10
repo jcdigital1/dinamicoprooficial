@@ -9,13 +9,14 @@ import {
   Clock,
   QrCode,
   ArrowRight,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../firebase/authContext';
 import { getUserBatches, getAllUserPlates } from '../services/plateService';
 import { Batch, Plate } from '../types';
 
 export const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [plates, setPlates] = useState<Plate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,15 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 shrink-0">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="px-4 py-3 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-700/60 text-red-200 font-bold text-xs shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4 text-red-400" />
+                <span>PAINEL ADMIN</span>
+              </Link>
+            )}
             <Link
               to="/gerar-lote"
               className="px-5 py-3 rounded-xl bg-gradient-to-b from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-xs shadow-[0_4px_16px_rgba(220,38,38,0.4)] active:translate-y-0.5 transition-all flex items-center gap-2"
