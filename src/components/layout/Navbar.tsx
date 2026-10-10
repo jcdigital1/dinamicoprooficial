@@ -8,29 +8,23 @@ import {
   LogOut,
   Menu,
   X,
-  Shield,
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../firebase/authContext';
 
 export const Navbar: React.FC = () => {
-  const { user, profile, isAdmin, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Standard buyer navigation items
-  const baseNavItems = [
+  // Exact 4 navigation items requested by user
+  const navItems = [
     { label: 'INÍCIO', path: '/', icon: Layers },
     { label: 'GERAR LOTE', path: '/gerar-lote', icon: PlusCircle },
     { label: 'MEUS LOTES', path: '/meus-lotes', icon: FolderKanban },
     { label: 'CONFIGURAÇÕES', path: '/configuracoes', icon: Settings },
   ];
-
-  // Admin sees an exclusive administration tab
-  const navItems = isAdmin
-    ? [...baseNavItems, { label: 'PAINEL ADMIN', path: '/admin', icon: Shield, isAdminBadge: true }]
-    : baseNavItems;
 
   const handleLogout = async () => {
     await logout();
@@ -53,29 +47,22 @@ export const Navbar: React.FC = () => {
             </div>
           </Link>
 
-          {/* Zone 2: Navigation Links (Desktop) */}
+          {/* Zone 2: Navigation Links (Desktop - 4 items) */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-2">
             {navItems.map((item) => {
               const active = location.pathname === item.path;
-              const isAdminItem = (item as any).isAdminBadge;
-
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
                     active
-                      ? 'bg-red-950/50 text-red-400 border border-red-800/60 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
-                      : isAdminItem
-                      ? 'text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-red-900/40'
+                      ? 'bg-red-950/40 text-red-400 border border-red-800/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
                   }`}
                 >
                   <item.icon className="w-3.5 h-3.5" />
                   {item.label}
-                  {isAdminItem && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse ml-0.5" />
-                  )}
                 </Link>
               );
             })}
@@ -90,17 +77,8 @@ export const Navbar: React.FC = () => {
                     {profile?.displayName || user.email?.split('@')[0]}
                   </div>
                   <div className="text-[10px] text-zinc-500 flex items-center justify-end gap-1 font-mono">
-                    {isAdmin ? (
-                      <span className="text-red-400 font-bold flex items-center gap-1">
-                        <Shield className="w-3 h-3 text-red-500" />
-                        ADMINISTRADOR
-                      </span>
-                    ) : (
-                      <span className="text-emerald-500 flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" />
-                        COMPRADOR PRO
-                      </span>
-                    )}
+                    <ShieldCheck className="w-3 h-3 text-red-500" />
+                    CONECTADO
                   </div>
                 </div>
                 <button
@@ -139,8 +117,6 @@ export const Navbar: React.FC = () => {
         <div className="md:hidden bg-zinc-950 border-b border-zinc-800 px-4 pt-2 pb-6 space-y-1">
           {navItems.map((item) => {
             const active = location.pathname === item.path;
-            const isAdminItem = (item as any).isAdminBadge;
-
             return (
               <Link
                 key={item.path}
@@ -149,18 +125,11 @@ export const Navbar: React.FC = () => {
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold tracking-wide ${
                   active
                     ? 'bg-red-950/60 text-red-400 border border-red-800/60'
-                    : isAdminItem
-                    ? 'text-red-400 hover:bg-red-950/40'
                     : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-                {isAdminItem && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 border border-red-800/60 ml-auto">
-                    ADMIN
-                  </span>
-                )}
+                {item.label}
               </Link>
             );
           })}
@@ -168,9 +137,6 @@ export const Navbar: React.FC = () => {
           <div className="pt-4 mt-2 border-t border-zinc-900 flex items-center justify-between">
             <div className="text-xs text-zinc-400">
               <span className="text-zinc-300 font-semibold">{user?.email || 'Visitante'}</span>
-              <div className="text-[10px] text-zinc-500 font-mono">
-                {isAdmin ? 'ADMINISTRADOR' : 'COMPRADOR PRO'}
-              </div>
             </div>
             {user && (
               <button

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Lock, Mail, User, Phone, ArrowRight, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, User, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
 import { useAuth } from '../firebase/authContext';
 
 export const Login: React.FC = () => {
-  const { user, profile, isAdmin, isApproved, isPending, isBlocked, loginWithEmail, registerWithEmail, resetPassword } = useAuth();
+  const { loginWithEmail, registerWithEmail, resetPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -13,27 +13,11 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const from = (location.state as any)?.from?.pathname || '/';
-
-  // If already authenticated, redirect to appropriate destination
-  useEffect(() => {
-    if (user && profile) {
-      if (isAdmin) {
-        navigate(from === '/login' ? '/' : from, { replace: true });
-      } else if (isApproved) {
-        navigate(from === '/login' ? '/' : from, { replace: true });
-      } else if (isPending) {
-        navigate('/aguardando-aprovacao', { replace: true });
-      } else if (isBlocked) {
-        navigate('/acesso-bloqueado', { replace: true });
-      }
-    }
-  }, [user, profile, isAdmin, isApproved, isPending, isBlocked, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +39,7 @@ export const Login: React.FC = () => {
       }
 
       if (isRegister) {
-        await registerWithEmail(email, password, name, phone);
+        await registerWithEmail(email, password, name);
       } else {
         await loginWithEmail(email, password);
       }
@@ -76,7 +60,7 @@ export const Login: React.FC = () => {
         }
       }
 
-      // Navigation is handled cleanly by the useEffect observer above once profile resolves
+      navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err?.message || 'Falha na autenticação. Verifique os dados digitados.');
@@ -86,7 +70,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-10 px-4">
+    <div className="min-h-[80vh] flex items-center justify-center py-10 px-4">
       <div className="max-w-md w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.8)] relative overflow-hidden">
         {/* Subtle red ambiance glow */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -104,8 +88,8 @@ export const Login: React.FC = () => {
             {showForgot
               ? 'Recuperação de Acesso'
               : isRegister
-              ? 'Cadastre sua conta de comprador'
-              : 'Painel Comercial de Plaquinhas NFC & QR Code'}
+              ? 'Cadastre sua conta comercial'
+              : 'Painel de Gestão e Fabricação de Plaquinhas'}
           </p>
         </div>
 
@@ -131,46 +115,25 @@ export const Login: React.FC = () => {
           className="space-y-4"
         >
           {isRegister && !showForgot && (
-            <>
-              <div>
-                <label htmlFor="name" className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  Nome / Razão Social
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    autoComplete="name"
-                    placeholder="Seu nome ou gráfica"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                  />
-                </div>
+            <div>
+              <label htmlFor="name" className="block text-xs font-semibold text-zinc-300 mb-1.5">
+                Nome / Gráfica
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Seu nome ou gráfica"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+                />
               </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  WhatsApp / Telefone <span className="text-zinc-500 font-normal">(para agilizar liberação)</span>
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3.5" />
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    autoComplete="tel"
-                    placeholder="(11) 99999-9999"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                  />
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
           <div>
@@ -244,7 +207,7 @@ export const Login: React.FC = () => {
               </>
             ) : isRegister ? (
               <>
-                <span>CRIAR CONTA DE COMPRADOR</span>
+                <span>CRIAR CONTA PRO</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             ) : (
@@ -286,7 +249,7 @@ export const Login: React.FC = () => {
               </span>
             ) : (
               <span>
-                Novo comprador?{' '}
+                Não tem uma conta?{' '}
                 <button
                   onClick={() => {
                     setIsRegister(true);

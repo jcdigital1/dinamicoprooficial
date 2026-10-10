@@ -6,9 +6,6 @@ import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
 
 import { Login } from './pages/Login';
-import { PendingApproval } from './pages/PendingApproval';
-import { BlockedAccess } from './pages/BlockedAccess';
-import { AdminPanel } from './pages/AdminPanel';
 import { Dashboard } from './pages/Dashboard';
 import { GenerateBatch } from './pages/GenerateBatch';
 import { MyBatches } from './pages/MyBatches';
@@ -32,10 +29,6 @@ export default function App() {
             {/* Public Authentication Route */}
             <Route path="/login" element={<Login />} />
 
-            {/* Dedicated Status Routes */}
-            <Route path="/aguardando-aprovacao" element={<PendingApproval />} />
-            <Route path="/acesso-bloqueado" element={<BlockedAccess />} />
-
             {/* Protected Commercial System Routes */}
             <Route
               path="/"
@@ -54,16 +47,6 @@ export default function App() {
               <Route path="calibrar/:modelId" element={<QrCalibrator />} />
               <Route path="configuracoes" element={<Settings />} />
               <Route path="testes" element={<SystemTests />} />
-
-              {/* Exclusive Admin Panel Route */}
-              <Route
-                path="admin"
-                element={
-                  <ProtectedRoute requireAdmin={true}>
-                    <AdminPanel />
-                  </ProtectedRoute>
-                }
-              />
             </Route>
 
             {/* Fallback */}

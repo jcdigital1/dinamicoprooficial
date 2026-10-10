@@ -1,27 +1,12 @@
 export type UserRole = 'admin' | 'owner' | 'user';
-export type UserStatus = 'pending' | 'approved' | 'blocked';
 
 export interface UserProfile {
   id: string;
   email: string;
   displayName?: string;
-  phone?: string;
   role: UserRole;
-  status: UserStatus;
   createdAt: string;
   updatedAt?: string;
-  approvedAt?: string;
-  approvedBy?: string;
-}
-
-export interface AdminSystemStats {
-  totalUsers: number;
-  pendingUsers: number;
-  approvedUsers: number;
-  blockedUsers: number;
-  totalBatches: number;
-  totalPlates: number;
-  totalClicks: number;
 }
 
 export interface QRPlacement {

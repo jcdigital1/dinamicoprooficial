@@ -2,12 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Safety Net (default deny)
+    // Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Security Helper functions
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -16,125 +16,58 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Check if the current user is an authorized admin by email in auth token or by admins collection record
-    function isAuthorizedAdminEmail() {
-      return isSignedIn() &&
-        request.auth.token.email != null &&
-        (
-          request.auth.token.email == 'jeannmkt2@gmail.com' ||
-          request.auth.token.email == 'jeanncarllosmkt@gmail.com' ||
-          request.auth.token.email.matches('(?i)^jeannmkt2@gmail\\.com$') ||
-          request.auth.token.email.matches('(?i)^jeanncarllosmkt@gmail\\.com$')
-        );
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function isAdmin() {
-      return isSignedIn() && (
-        isAuthorizedAdminEmail() ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.admin == true)
-      );
-    }
-
-    function isApprovedUser() {
-      return isSignedIn() && (
-        isAdmin() ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved'
-        )
-      );
-    }
-
-    // Admin collection (registry of verified administrators)
-    match /admins/{adminId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      // Allow authorized admin email to create/update their own admin doc, or existing admin
-      allow create, update: if (isSignedIn() && request.auth.uid == adminId && isAuthorizedAdminEmail()) || isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    // Users collection (buyer accounts and approval statuses)
+    // Users collection
     match /users/{userId} {
-      // Individual user can get their own doc; Admin can get any user doc
-      allow get: if isOwner(userId) || isAdmin();
-      
-      // Admin can list all users in the collection (for AdminPanel real-time listener and query)
-      allow list: if isAdmin();
-
-      // Creation on registration or first-time sync:
-      // If superadmin email: can create with role admin and status approved
-      // If regular user: MUST create their own doc with role 'user' and status 'pending' (cannot self-approve or self-escalate)
-      allow create: if (
-        isOwner(userId) && (
-          (isAuthorizedAdminEmail() && request.resource.data.role == 'admin' && request.resource.data.status == 'approved') ||
-          (request.resource.data.role == 'user' && request.resource.data.status == 'pending')
-        )
-      ) || isAdmin();
-
-      // Update:
-      // Ordinary owner can only update non-privilege profile fields (displayName, phone, updatedAt)
-      // Only Admin can update role, status, approvedAt, approvedBy, etc.
-      allow update: if (
-        isAdmin() ||
-        (
-          isOwner(userId) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'updatedAt'])
-        )
-      );
-
-      // Only admin can delete user record
-      allow delete: if isAdmin();
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && request.resource.data.id == userId;
+      allow delete: if false;
     }
 
     // Plate Models (Templates)
     match /plateModels/{modelId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.isDefault == true || isAdmin());
-      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.isDefault == true);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Batches (Production batches - isolated per user, full view for admin)
+    // Batches
     match /batches/{batchId} {
-      allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
-      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
-      allow create: if (isApprovedUser() && request.resource.data.userId == request.auth.uid) || isAdmin();
-      allow update: if (isApprovedUser() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || isAdmin();
-      allow delete: if (isApprovedUser() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Plates (NFC & QR Code plates)
-    // Dynamic redirection: Public visitors MUST be able to get a single plate document
+    // IMPORTANT: Public visitors MUST be able to read single plate documents to follow dynamic redirects!
     match /plates/{plateId} {
       allow get: if true;
-      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
-      allow create: if (isApprovedUser() && request.resource.data.userId == request.auth.uid) || isAdmin();
-      allow update: if (
-        // Approved owner can update destination/details
-        (isApprovedUser() && resource.data.userId == request.auth.uid) ||
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid) ||
         // Public visitor can increment clicksCount only
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicksCount'])) ||
-        // Admin override
-        isAdmin()
-      );
-      allow delete: if (isApprovedUser() && resource.data.userId == request.auth.uid) || isAdmin();
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicksCount']));
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Counters (atomic monotonic number generation)
     match /counters/{counterId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
       allow create, update: if isSignedIn();
       allow delete: if false;
     }
 
-    // Platform Settings
+    // Installation Settings
     match /settings/{settingId} {
       allow get: if true;
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow list, create, update: if isSignedIn();
+      allow delete: if false;
     }
   }
 }
