@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './config';
-import { UserProfile } from '../types';
+import { UserProfile, UserRole, UserStatus } from '../types';
 
 export const ADMIN_EMAILS = [
   'jeannmkt2@gmail.com',
@@ -58,7 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (currentUser) {
-        const isAdminAccount = isAuthorizedAdminEmail(currentUser.email);
+        const cleanEmail = currentUser.email?.trim().toLowerCase() || '';
+        const isAdminAccount = isAuthorizedAdminEmail(cleanEmail);
         const userRef = doc(db, 'users', currentUser.uid);
 
         try {
@@ -70,15 +71,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isAdminAccount && (data.role !== 'admin' || data.status !== 'approved')) {
               const updatedAdminProfile: UserProfile = {
                 ...data,
+                email: cleanEmail,
                 role: 'admin',
                 status: 'approved',
                 updatedAt: new Date().toISOString(),
               };
-              await setDoc(userRef, updatedAdminProfile, { merge: true }).catch(() => {});
+              await setDoc(userRef, updatedAdminProfile, { merge: true }).catch((e) => console.warn(e));
               // Ensure doc in admins collection for security rules
               await setDoc(doc(db, 'admins', currentUser.uid), {
                 id: currentUser.uid,
-                email: currentUser.email,
+                email: cleanEmail,
                 createdAt: new Date().toISOString(),
               }).catch(() => {});
               setProfile(updatedAdminProfile);
@@ -86,14 +88,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setProfile(data);
             }
           } else {
-            // Document doesn't exist yet: initialize appropriately
-            const initialRole = isAdminAccount ? 'admin' : 'user';
-            const initialStatus = isAdminAccount ? 'approved' : 'pending';
+            // Requirement 15: Document doesn't exist yet (account recovery for existing Auth users)
+            const initialRole: UserRole = isAdminAccount ? 'admin' : 'user';
+            const initialStatus: UserStatus = isAdminAccount ? 'approved' : 'pending';
 
             const newProfile: UserProfile = {
               id: currentUser.uid,
-              email: currentUser.email || '',
+              email: cleanEmail,
               displayName: currentUser.displayName || (isAdminAccount ? 'Administrador Dinâmico Pro' : 'Comprador'),
+              phone: '',
               role: initialRole,
               status: initialStatus,
               createdAt: new Date().toISOString(),
@@ -107,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isAdminAccount) {
               await setDoc(doc(db, 'admins', currentUser.uid), {
                 id: currentUser.uid,
-                email: currentUser.email,
+                email: cleanEmail,
                 createdAt: new Date().toISOString(),
               }).catch(() => {});
             }
@@ -116,10 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (e) {
           console.warn('Error reading user profile from Firestore:', e);
-          // Fallback profile
+          // Fallback profile if Firestore read fails
           setProfile({
             id: currentUser.uid,
-            email: currentUser.email || '',
+            email: cleanEmail,
             displayName: currentUser.displayName || (isAdminAccount ? 'Administrador' : 'Comprador'),
             role: isAdminAccount ? 'admin' : 'user',
             status: isAdminAccount ? 'approved' : 'pending',
@@ -127,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
 
-        // Set up real-time listener on user doc so status updates (approvals) reflect immediately
+        // Set up real-time listener on user doc so status updates (approvals/blocks) reflect immediately
         try {
           unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -137,8 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }, (err) => {
             console.warn('Profile snapshot listener error:', err);
           });
-        } catch {
-          // ignore
+        } catch (e) {
+          console.warn('Failed to attach profile listener:', e);
         }
       } else {
         setProfile(null);
@@ -170,7 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return profile;
   };
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithEmail = async (rawEmail: string, pass: string) => {
+    const email = rawEmail.trim().toLowerCase();
     try {
       await signInWithEmailAndPassword(auth, email, pass);
     } catch (err: any) {
@@ -186,7 +190,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const registerWithEmail = async (email: string, pass: string, name?: string, phone?: string) => {
+  const registerWithEmail = async (rawEmail: string, pass: string, name?: string, phone?: string) => {
+    const email = rawEmail.trim().toLowerCase();
     try {
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       const isAdminAccount = isAuthorizedAdminEmail(email);
@@ -194,24 +199,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newProfile: UserProfile = {
         id: res.user.uid,
         email,
-        displayName: name || email.split('@')[0],
-        phone: phone || '',
+        displayName: name?.trim() || email.split('@')[0],
+        phone: phone?.trim() || '',
         role: isAdminAccount ? 'admin' : 'user',
         status: isAdminAccount ? 'approved' : 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(db, 'users', res.user.uid), newProfile).catch((err) => {
-        console.warn('Error writing user record on registration:', err);
-      });
+      // Reliable write to users collection with retry (Requirement 1 & 2)
+      try {
+        await setDoc(doc(db, 'users', res.user.uid), newProfile);
+      } catch (writeErr) {
+        console.warn('Initial write to users collection failed, retrying in 300ms...', writeErr);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await setDoc(doc(db, 'users', res.user.uid), newProfile);
+      }
 
       if (isAdminAccount) {
         await setDoc(doc(db, 'admins', res.user.uid), {
           id: res.user.uid,
           email,
           createdAt: new Date().toISOString(),
-        }).catch(() => {});
+        }).catch((e) => console.warn('Admin record write warning:', e));
       }
 
       setProfile(newProfile);
@@ -231,7 +241,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (rawEmail: string) => {
+    const email = rawEmail.trim().toLowerCase();
     await sendPasswordResetEmail(auth, email);
   };
 

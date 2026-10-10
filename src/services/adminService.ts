@@ -3,11 +3,11 @@ import {
   doc,
   getDocs,
   getDoc,
-  updateDoc,
+  setDoc,
   deleteDoc,
   query,
   where,
-  orderBy,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { UserProfile, UserStatus, AdminSystemStats, Batch, Plate } from '../types';
@@ -16,20 +16,41 @@ import { UserProfile, UserStatus, AdminSystemStats, Batch, Plate } from '../type
  * Fetch all registered buyer users for the admin dashboard
  */
 export async function getAllUsers(): Promise<UserProfile[]> {
-  try {
-    const q = query(collection(db, 'users'));
-    const snapshot = await getDocs(q);
-    const users: UserProfile[] = [];
-    snapshot.forEach((d) => {
-      users.push(d.data() as UserProfile);
-    });
+  const q = collection(db, 'users');
+  const snapshot = await getDocs(q);
+  const users: UserProfile[] = [];
+  snapshot.forEach((d) => {
+    users.push(d.data() as UserProfile);
+  });
 
-    users.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    return users;
-  } catch (error) {
-    console.error('Error fetching users in adminService:', error);
-    return [];
-  }
+  users.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  return users;
+}
+
+/**
+ * Real-time listener for the users collection
+ * Updates the admin panel immediately when any buyer registers or changes status
+ */
+export function subscribeToUsers(
+  onUpdate: (users: UserProfile[]) => void,
+  onError: (err: Error) => void
+): () => void {
+  const usersRef = collection(db, 'users');
+  return onSnapshot(
+    usersRef,
+    (snapshot) => {
+      const users: UserProfile[] = [];
+      snapshot.forEach((d) => {
+        users.push(d.data() as UserProfile);
+      });
+      users.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      onUpdate(users);
+    },
+    (error) => {
+      console.error('Error in subscribeToUsers listener:', error);
+      onError(error as Error);
+    }
+  );
 }
 
 /**
@@ -55,7 +76,7 @@ export async function updateUserStatus(
     }
   }
 
-  await updateDoc(userRef, updatePayload);
+  await setDoc(userRef, updatePayload, { merge: true });
 }
 
 /**

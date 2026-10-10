@@ -21,10 +21,12 @@ import {
   ExternalLink,
   ChevronDown,
   Sparkles,
+  Radio,
 } from 'lucide-react';
 import { useAuth } from '../firebase/authContext';
 import {
   getAllUsers,
+  subscribeToUsers,
   updateUserStatus,
   deleteUser,
   getPlatformMetrics,
@@ -38,6 +40,7 @@ export const AdminPanel: React.FC = () => {
   const [metrics, setMetrics] = useState<AdminSystemStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'blocked'>('all');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -45,7 +48,63 @@ export const AdminPanel: React.FC = () => {
   const [userProductionStats, setUserProductionStats] = useState<{ batchesCount: number; platesCount: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const loadAllData = async () => {
+  // Requirement 4: Real-time listener for users collection via subscribeToUsers
+  useEffect(() => {
+    setLoading(true);
+    setFetchError(null);
+
+    // Initial load of platform metrics (batches/plates)
+    getPlatformMetrics()
+      .then((stats) => setMetrics(stats))
+      .catch((err) => console.warn('Metrics fetch warning:', err));
+
+    // Real-time Firestore snapshot listener
+    const unsubscribe = subscribeToUsers(
+      (updatedUsers) => {
+        setUsers(updatedUsers);
+        setLoading(false);
+        setRefreshing(false);
+        setFetchError(null);
+
+        // Dynamically compute user count breakdown from live snapshot
+        let pending = 0;
+        let approved = 0;
+        let blocked = 0;
+        updatedUsers.forEach((u) => {
+          if (u.status === 'pending') pending++;
+          else if (u.status === 'approved') approved++;
+          else if (u.status === 'blocked') blocked++;
+        });
+
+        setMetrics((prev) => ({
+          totalUsers: updatedUsers.length,
+          pendingUsers: pending,
+          approvedUsers: approved,
+          blockedUsers: blocked,
+          totalBatches: prev?.totalBatches || 0,
+          totalPlates: prev?.totalPlates || 0,
+          totalClicks: prev?.totalClicks || 0,
+        }));
+      },
+      (error) => {
+        console.error('Real-time users error in AdminPanel:', error);
+        setLoading(false);
+        setRefreshing(false);
+        const msg = error.message.includes('permission-denied')
+          ? 'Permissão negada ao consultar a coleção de usuários no Firestore. Verifique se sua conta (jeannmkt2@gmail.com) está autenticada com privilégios administrativos.'
+          : `Erro ao consultar a lista de cadastros no Firestore: ${error.message}`;
+        setFetchError(msg);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setFetchError(null);
     try {
       const [allUsers, stats] = await Promise.all([
         getAllUsers(),
@@ -53,21 +112,16 @@ export const AdminPanel: React.FC = () => {
       ]);
       setUsers(allUsers);
       setMetrics(stats);
-    } catch (e) {
-      console.error('Error loading admin data:', e);
+      showToast('Dados atualizados com sucesso.');
+    } catch (e: any) {
+      console.error('Error refreshing admin data:', e);
+      const msg = e?.message?.includes('permission-denied')
+        ? 'Permissão negada ao listar usuários no Firestore. Verifique as credenciais da conta administradora jeannmkt2@gmail.com.'
+        : `Falha ao atualizar dados: ${e?.message || 'Erro desconhecido'}`;
+      setFetchError(msg);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadAllData();
   };
 
   const showToast = (msg: string) => {
@@ -75,12 +129,14 @@ export const AdminPanel: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Requirement 5 & 6: Functional status update buttons (Aprovar, Bloquear, Reativar)
   const handleUpdateStatus = async (targetUser: UserProfile, newStatus: UserStatus) => {
     try {
       setActionLoadingId(targetUser.id);
+      setFetchError(null);
       await updateUserStatus(targetUser.id, newStatus, currentAdmin?.uid);
 
-      // Update local state immediately for responsive UI
+      // Local optimistic update
       setUsers((prev) =>
         prev.map((u) =>
           u.id === targetUser.id
@@ -89,34 +145,20 @@ export const AdminPanel: React.FC = () => {
         )
       );
 
-      // Update metrics
-      setMetrics((prev) => {
-        if (!prev) return null;
-        let pUsers = prev.pendingUsers;
-        let aUsers = prev.approvedUsers;
-        let bUsers = prev.blockedUsers;
-
-        if (targetUser.status === 'pending') pUsers--;
-        else if (targetUser.status === 'approved') aUsers--;
-        else if (targetUser.status === 'blocked') bUsers--;
-
-        if (newStatus === 'pending') pUsers++;
-        else if (newStatus === 'approved') aUsers++;
-        else if (newStatus === 'blocked') bUsers++;
-
-        return { ...prev, pendingUsers: pUsers, approvedUsers: aUsers, blockedUsers: bUsers };
-      });
-
       const label =
         newStatus === 'approved'
-          ? 'aprovado e liberado'
+          ? 'aprovado com sucesso'
           : newStatus === 'blocked'
           ? 'bloqueado'
-          : 'marcado como pendente';
-      showToast(`Acesso do usuário ${targetUser.email} ${label} com sucesso.`);
-    } catch (error) {
+          : 'reativado';
+      showToast(`Acesso do usuário ${targetUser.email} ${label}.`);
+    } catch (error: any) {
       console.error('Failed to update status:', error);
-      showToast('Erro ao atualizar status do comprador.');
+      const msg = error?.message?.includes('permission-denied')
+        ? 'Erro de permissão: somente a conta administrativa autorizada pode aprovar ou bloquear compradores.'
+        : `Erro ao atualizar status do comprador: ${error?.message || 'Falha na conexão com o Firestore'}`;
+      setFetchError(msg);
+      showToast('Falha ao atualizar status.');
     } finally {
       setActionLoadingId(null);
     }
@@ -134,8 +176,12 @@ export const AdminPanel: React.FC = () => {
       setUsers((prev) => prev.filter((u) => u.id !== targetUser.id));
       if (selectedUser?.id === targetUser.id) setSelectedUser(null);
       showToast(`Usuário ${targetUser.email} excluído.`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete user:', error);
+      const msg = error?.message?.includes('permission-denied')
+        ? 'Permissão negada para excluir usuário.'
+        : `Erro ao excluir usuário: ${error?.message || 'Falha na conexão'}`;
+      setFetchError(msg);
       showToast('Erro ao excluir usuário.');
     } finally {
       setActionLoadingId(null);
@@ -178,28 +224,58 @@ export const AdminPanel: React.FC = () => {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-red-700/60 text-[11px] font-bold text-red-300 tracking-wider">
               <Shield className="w-3.5 h-3.5 text-red-400" />
-              PAINEL ADMINISTRATIVO EXCLUSIVO
+              PAINEL ADMINISTRATIVO EXCLUSIVO • JEANNMKT2@GMAIL.COM
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               Gestão de Compradores & Plataforma
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              Aprovação manual de pagamentos únicos, controle de liberação de licenças comerciais e métricas consolidadas do ecossistema DINÂMICO PRO.
+              Aprovação manual de compradores, liberação de licenças e atualização automática em tempo real via Firestore.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-[11px] text-zinc-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Listener Tempo Real Ativo</span>
+            </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
               className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 font-semibold text-xs transition-all flex items-center gap-2 disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-red-500 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'ATUALIZANDO...' : 'ATUALIZAR DADOS'}</span>
+              <span>{refreshing ? 'ATUALIZANDO...' : 'SINCRONIZAR'}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Requirement 13: Prominent Error Banner when reading/saving fails */}
+      {fetchError && (
+        <div className="p-4 rounded-2xl bg-red-950/90 border border-red-700/80 text-red-200 text-xs flex items-start gap-3 shadow-[0_4px_20px_rgba(239,68,68,0.25)]">
+          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-red-100 text-sm mb-1">Aviso do Sistema de Cadastros</div>
+            <p className="leading-relaxed">{fetchError}</p>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                className="px-3 py-1.5 rounded-lg bg-red-900/80 hover:bg-red-800 text-white font-semibold transition-colors flex items-center gap-1.5 text-xs border border-red-600/50"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Tentar Novamente
+              </button>
+              <button
+                onClick={() => setFetchError(null)}
+                className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold transition-colors text-xs border border-zinc-700"
+              >
+                Dispensar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global Metrics KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -324,11 +400,21 @@ export const AdminPanel: React.FC = () => {
         {loading ? (
           <div className="py-16 text-center text-xs text-zinc-500">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-red-500" />
-            Carregando lista de compradores...
+            Carregando lista de compradores em tempo real...
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="py-16 text-center text-zinc-500 text-xs">
-            Nenhum comprador encontrado com os filtros atuais.
+            {users.length === 0 ? (
+              <div className="space-y-2">
+                <Users className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                <p className="font-semibold text-zinc-400">Nenhum comprador cadastrado no banco de dados.</p>
+                <p className="text-[11px] text-zinc-500">
+                  Assim que um comprador criar uma conta na tela de cadastro, o registro aparecerá automaticamente aqui nesta tabela.
+                </p>
+              </div>
+            ) : (
+              'Nenhum comprador encontrado com os filtros atuais.'
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -407,7 +493,7 @@ export const AdminPanel: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Action buttons */}
+                      {/* Requirement 5: Functional buttons (Aprovar, Bloquear, Reativar) */}
                       <td className="py-3.5 text-right pr-2">
                         <div className="inline-flex items-center gap-1.5">
                           {/* Inspect button */}
@@ -419,42 +505,42 @@ export const AdminPanel: React.FC = () => {
                             <ExternalLink className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Approval / Reactivation Action */}
-                          {u.status !== 'approved' && (
+                          {/* Botão APROVAR (para usuários pendentes) */}
+                          {u.status === 'pending' && (
                             <button
                               onClick={() => handleUpdateStatus(u, 'approved')}
                               disabled={isActionLoading}
-                              title="Aprovar e Liberar Acesso"
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/60 text-[11px] font-bold transition-all flex items-center gap-1 disabled:opacity-50"
+                              title="Aprovar e Liberar Acesso do Comprador"
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-600/70 text-[11px] font-bold transition-all flex items-center gap-1 disabled:opacity-50 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>APROVAR</span>
+                              <span>Aprovar</span>
                             </button>
                           )}
 
-                          {/* Block Action */}
-                          {u.status === 'approved' && !isAdminUser && (
-                            <button
-                              onClick={() => handleUpdateStatus(u, 'blocked')}
-                              disabled={isActionLoading}
-                              title="Bloquear Acesso"
-                              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/60 text-zinc-300 hover:text-red-300 border border-zinc-800 hover:border-red-800/60 text-[11px] font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <UserX className="w-3.5 h-3.5" />
-                              <span>Bloquear</span>
-                            </button>
-                          )}
-
-                          {/* Re-mark as pending (rare) */}
+                          {/* Botão REATIVAR (para usuários bloqueados) */}
                           {u.status === 'blocked' && !isAdminUser && (
                             <button
                               onClick={() => handleUpdateStatus(u, 'approved')}
                               disabled={isActionLoading}
-                              title="Reativar Acesso"
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/60 text-[11px] font-bold transition-all flex items-center gap-1 disabled:opacity-50"
+                              title="Reativar Acesso do Comprador"
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-900/70 hover:bg-emerald-800 text-emerald-200 border border-emerald-600/60 text-[11px] font-bold transition-all flex items-center gap-1 disabled:opacity-50"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
                               <span>Reativar</span>
+                            </button>
+                          )}
+
+                          {/* Botão BLOQUEAR (para usuários ativos ou pendentes quando se deseja suspender) */}
+                          {u.status === 'approved' && !isAdminUser && (
+                            <button
+                              onClick={() => handleUpdateStatus(u, 'blocked')}
+                              disabled={isActionLoading}
+                              title="Bloquear Acesso do Comprador"
+                              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/80 text-zinc-300 hover:text-red-300 border border-zinc-800 hover:border-red-800/60 text-[11px] font-semibold transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                              <span>Bloquear</span>
                             </button>
                           )}
 
@@ -491,91 +577,87 @@ export const AdminPanel: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedUser(null)}
-                className="text-zinc-400 hover:text-white text-xs p-1"
+                className="text-zinc-500 hover:text-white text-xs font-semibold"
               >
-                ✕ Fechar
+                FECHAR
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-zinc-400">Nome:</span>
-                  <span className="font-semibold text-white">{selectedUser.displayName || 'Não informado'}</span>
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Nome:</span>
+                  <span className="text-xs font-bold text-white">{selectedUser.displayName || 'Não informado'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-400">E-mail:</span>
-                  <span className="font-mono text-zinc-300">{selectedUser.email}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">E-mail:</span>
+                  <span className="text-xs font-mono text-zinc-200">{selectedUser.email}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-400">ID Firebase:</span>
-                  <span className="font-mono text-[10px] text-zinc-500">{selectedUser.id}</span>
+                {selectedUser.phone && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">WhatsApp / Tel:</span>
+                    <span className="text-xs font-mono text-zinc-200">{selectedUser.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">ID (UID):</span>
+                  <span className="text-[11px] font-mono text-zinc-400 truncate max-w-[200px]">{selectedUser.id}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-400">Data de Registro:</span>
-                  <span className="text-zinc-300">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Status Atual:</span>
+                  <span className="text-xs font-bold capitalize text-white">{selectedUser.status}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">Data de Cadastro:</span>
+                  <span className="text-xs text-zinc-300">
                     {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleString('pt-BR') : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-400">Status Atual:</span>
-                  <span className="font-bold uppercase tracking-wider text-white">
-                    {selectedUser.status}
                   </span>
                 </div>
               </div>
 
-              {/* Usage Stats */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Lotes Gerados</span>
+              {/* Stats for this buyer */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-center">
+                  <div className="text-[11px] text-zinc-400">Lotes Gerados</div>
                   <div className="text-xl font-bold font-mono text-white mt-1">
                     {userProductionStats ? userProductionStats.batchesCount : '...'}
                   </div>
                 </div>
-                <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 uppercase font-semibold">Plaquinhas Produzidas</span>
+                <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-xl text-center">
+                  <div className="text-[11px] text-zinc-400">Plaquinhas Ativas</div>
                   <div className="text-xl font-bold font-mono text-white mt-1">
                     {userProductionStats ? userProductionStats.platesCount : '...'}
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Quick status actions in modal */}
-            <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-              {selectedUser.status !== 'approved' && (
-                <button
-                  onClick={async () => {
-                    await handleUpdateStatus(selectedUser, 'approved');
-                    setSelectedUser((prev) => prev ? { ...prev, status: 'approved' } : null);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>APROVAR ACESSO</span>
-                </button>
-              )}
-
-              {selectedUser.status === 'approved' && selectedUser.role !== 'admin' && (
-                <button
-                  onClick={async () => {
-                    await handleUpdateStatus(selectedUser, 'blocked');
-                    setSelectedUser((prev) => prev ? { ...prev, status: 'blocked' } : null);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-red-300 bg-red-950/60 hover:bg-red-900/60 border border-red-800/60 flex items-center justify-center gap-1.5"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                  <span>BLOQUEAR</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800"
-              >
-                Fechar
-              </button>
+              {/* Status Change Buttons in Modal */}
+              <div className="pt-2 flex items-center justify-end gap-2">
+                {selectedUser.status !== 'approved' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateStatus(selectedUser, 'approved');
+                      setSelectedUser(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Aprovar Acesso</span>
+                  </button>
+                )}
+                {selectedUser.status === 'approved' && selectedUser.role !== 'admin' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateStatus(selectedUser, 'blocked');
+                      setSelectedUser(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-red-950 hover:bg-red-900 border border-red-800/80 text-red-200 font-bold text-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <UserX className="w-4 h-4" />
+                    <span>Bloquear Acesso</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
